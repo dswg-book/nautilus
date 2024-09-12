@@ -5,4 +5,5 @@ type CmdCode string
 const (
 	CmdMessage    CmdCode = "message"
 	CmdDisconnect CmdCode = "disconnect"
+	CmdID         CmdCode = "id"
 )

@@ -9,7 +9,6 @@ import (
 )
 
 type ServerOptions struct {
-	Redis      *RedisOptions
 	Host, Port string
 }
 
@@ -17,7 +16,7 @@ type Server struct {
 	Options     *ServerOptions
 	Context     context.Context
 	listener    net.Listener
-	connections map[net.Addr]*net.Conn
+	connections map[string]*Connection
 }
 
 var serverInstance *Server
@@ -26,19 +25,13 @@ func NewServer(ctx context.Context, options *ServerOptions) *Server {
 	serverInstance = &Server{
 		Options:     options,
 		Context:     ctx,
-		connections: make(map[net.Addr]*net.Conn),
+		connections: make(map[string]*Connection),
 	}
 	return serverInstance
 }
 
 func (s *Server) Start() {
 	go func() {
-		r := NewRedis(s.Context, *s.Options.Redis)
-		if err := r.Connect(); err != nil {
-			fmt.Printf("redis connect: error: %s\n", err)
-			panic(err)
-		}
-
 		if err := s.listen(); err != nil {
 			fmt.Printf("listen: error: %s\n", err)
 			panic(err)
@@ -47,9 +40,6 @@ func (s *Server) Start() {
 }
 
 func (s *Server) Stop() error {
-	if err := redisInstance.Close(); err != nil {
-		return err
-	}
 	return s.listener.Close()
 }
 
@@ -67,12 +57,36 @@ func (s *Server) listen() error {
 		if err != nil {
 			return err
 		}
-		s.connections[c.RemoteAddr()] = &c
-		go s.handleConnection(c)
+		conn := s.addConnection(c)
+		go s.handleConnection(conn)
 	}
 }
 
-func (s *Server) handleConnection(c net.Conn) {
+func (s *Server) addConnection(c net.Conn) *Connection {
+	var name string
+	var generatedName bool
+
+	for !generatedName {
+		name = generateName()
+		generatedName = true
+		for k, _ := range s.connections {
+			if k == name {
+				generatedName = false
+			}
+		}
+	}
+
+	conn := NewConnection(ConnectionOptions{ID: name, Conn: c})
+	s.connections[name] = conn
+	return conn
+}
+
+func (s *Server) handleConnection(c *Connection) {
+	if _, err := c.Write([]byte(fmt.Sprintf(">id:%s\n", c.ID))); err != nil {
+		c.Close()
+		return
+	}
+
 	for {
 		data, err := bufio.NewReader(c).ReadString('\n')
 		if err != nil {
@@ -95,9 +109,14 @@ func (s *Server) handleConnection(c net.Conn) {
 			c.Close()
 			return
 		case CmdMessage:
-			for _, conn := range s.connections {
+			for id, conn := range s.connections {
 				l := *conn
-				l.Write([]byte(fmt.Sprintf("%s\n", input)))
+				if id != c.ID {
+					if _, err := l.Write([]byte(fmt.Sprintf(">who:%s >message:%s\n", c.ID, input))); err != nil {
+						l.Close()
+						return
+					}
+				}
 			}
 		}
 	}
