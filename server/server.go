@@ -81,8 +81,17 @@ func (s *Server) addConnection(c net.Conn) *Connection {
 	return conn
 }
 
+func (s *Server) deleteConnection(c *Connection) {
+	delete(s.connections, c.ID)
+}
+
+func (s *Server) closeAndDeleteConnection(c *Connection) {
+	c.Close()
+	s.deleteConnection(c)
+}
+
 func (s *Server) handleConnection(c *Connection) {
-	if _, err := c.Write([]byte(fmt.Sprintf(">id:%s\n", c.ID))); err != nil {
+	if _, err := c.Write([]byte(fmt.Sprintf(">who:|>>id:%s\n", c.ID))); err != nil {
 		c.Close()
 		return
 	}
@@ -101,22 +110,29 @@ func (s *Server) handleConnection(c *Connection) {
 			parts := strings.SplitN(data, " ", 1)
 			cut, _ := strings.CutPrefix(parts[0], "/")
 			cmd = CmdCode(strings.ToLower(cut))
-			input = parts[1]
+			if len(parts) > 1 {
+				input = parts[1]
+			}
 		}
 
 		switch cmd {
-		case CmdDisconnect:
-			c.Close()
+		case CmdDisconnect, CmdClose:
+			s.closeAndDeleteConnection(c)
 			return
 		case CmdMessage:
 			for id, conn := range s.connections {
 				l := *conn
 				if id != c.ID {
-					if _, err := l.Write([]byte(fmt.Sprintf(">who:%s >message:%s\n", c.ID, input))); err != nil {
-						l.Close()
+					if _, err := l.Write([]byte(fmt.Sprintf(">who:%s|>>message:%s\n", c.ID, input))); err != nil {
+						serverInstance.closeAndDeleteConnection(conn)
 						return
 					}
 				}
+			}
+		default:
+			if _, err := c.Write([]byte(fmt.Sprintf(">who:|>>message:%s\n", CmdErrorInvalidCommand))); err != nil {
+				s.closeAndDeleteConnection(c)
+				return
 			}
 		}
 	}
