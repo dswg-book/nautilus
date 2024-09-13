@@ -103,36 +103,54 @@ func (s *Server) handleConnection(c *Connection) {
 		}
 		data = strings.TrimSpace(data)
 
-		input := data
-		cmd := CmdMessage
+		var cmds []*Command
 
-		if strings.HasPrefix(data, "/") {
-			parts := strings.SplitN(data, " ", 1)
-			cut, _ := strings.CutPrefix(parts[0], "/")
-			cmd = CmdCode(strings.ToLower(cut))
-			if len(parts) > 1 {
-				input = parts[1]
+		tags := strings.Split(data, "|>")
+		for _, tag := range tags {
+			cmd := NewCommand(CommandOptions{Code: CmdMessage})
+			if strings.HasPrefix(tag, "<") {
+				tagParts := strings.Split(tag, ":")
+				cmd = NewCommand(
+					CommandOptions{
+						Code:  CmdCode(tagParts[0][1:]),
+						Input: tagParts[1],
+					},
+				)
 			}
+			cmds = append(cmds, cmd)
 		}
 
-		switch cmd {
-		case CmdDisconnect, CmdClose:
-			s.closeAndDeleteConnection(c)
-			return
-		case CmdMessage:
-			for id, conn := range s.connections {
-				l := *conn
-				if id != c.ID {
-					if _, err := l.Write([]byte(fmt.Sprintf(">who:%s|>>message:%s\n", c.ID, input))); err != nil {
-						serverInstance.closeAndDeleteConnection(conn)
-						return
-					}
+		for _, cmd := range cmds {
+			if cmd.Code == CmdAction {
+				actionParts := strings.SplitN(cmd.Input, " ", 1)
+				cmd.Input = ""
+				cmd.Code = CmdCode(actionParts[0])
+				if len(actionParts) > 1 {
+					cmd.Input = actionParts[1]
 				}
 			}
-		default:
-			if _, err := c.Write([]byte(fmt.Sprintf(">who:|>>message:%s\n", CmdErrorInvalidCommand))); err != nil {
+
+			switch cmd.Code {
+			case CmdDisconnect, CmdClose:
 				s.closeAndDeleteConnection(c)
 				return
+			case CmdMessage:
+				for id, conn := range s.connections {
+					l := *conn
+					if id != c.ID {
+						if cmd.Input != "" {
+							if _, err := l.Write([]byte(fmt.Sprintf(">who:%s|>>message:%s\n", c.ID, cmd.Input))); err != nil {
+								serverInstance.closeAndDeleteConnection(conn)
+								return
+							}
+						}
+					}
+				}
+			default:
+				if _, err := c.Write([]byte(fmt.Sprintf(">who:|>>message:%s\n", CmdErrorInvalidCommand))); err != nil {
+					s.closeAndDeleteConnection(c)
+					return
+				}
 			}
 		}
 	}
