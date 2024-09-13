@@ -119,6 +119,9 @@ func (s *Server) handleConnection(c *Connection) {
 		data = strings.TrimSpace(data)
 
 		cmds := CommandsFromTags(data)
+		if len(cmds) < 1 {
+			s.send(c, "", fmt.Sprintf(">message:%s: %s", CmdErrorInvalidCommand, data))
+		}
 		for _, cmd := range cmds {
 			if err := cmd.Run(c); err != nil {
 				log.Printf("cmd run error: %s", err)

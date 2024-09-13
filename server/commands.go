@@ -32,18 +32,22 @@ func NewCommand(options CommandOptions) *Command {
 
 func CommandsFromTags(data string) []*Command {
 	var cmds []*Command
+	if !strings.HasPrefix(data, "<") {
+		return cmds
+	}
 
 	tags := strings.Split(data, "|>")
 	for _, tag := range tags {
 		cmd := NewCommand(CommandOptions{Code: CmdMessage})
 		if strings.HasPrefix(tag, "<") {
 			tagParts := strings.Split(tag, ":")
-			cmd = NewCommand(
-				CommandOptions{
-					Code:  CmdCode(tagParts[0][1:]),
-					Input: tagParts[1],
-				},
-			)
+			options := CommandOptions{
+				Code: CmdCode(tagParts[0][1:]),
+			}
+			if len(tagParts) > 1 {
+				options.Input = tagParts[1]
+			}
+			cmd = NewCommand(options)
 		}
 		cmds = append(cmds, cmd)
 	}
