@@ -1,5 +1,11 @@
 package server
 
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
+
 type CmdCode string
 
 const (
@@ -22,4 +28,67 @@ type Command struct {
 
 func NewCommand(options CommandOptions) *Command {
 	return &Command{Code: CmdCode(options.Code), Input: options.Input}
+}
+
+func CommandsFromTags(data string) []*Command {
+	var cmds []*Command
+
+	tags := strings.Split(data, "|>")
+	for _, tag := range tags {
+		cmd := NewCommand(CommandOptions{Code: CmdMessage})
+		if strings.HasPrefix(tag, "<") {
+			tagParts := strings.Split(tag, ":")
+			cmd = NewCommand(
+				CommandOptions{
+					Code:  CmdCode(tagParts[0][1:]),
+					Input: tagParts[1],
+				},
+			)
+		}
+		cmds = append(cmds, cmd)
+	}
+
+	return cmds
+}
+
+func (cmd *Command) Run(c *Connection) error {
+	if serverInstance == nil {
+		return errors.New("missing server instance: please start server")
+	}
+
+	if cmd.Code == CmdAction {
+		actionParts := strings.SplitN(cmd.Input, " ", 1)
+		cmd.Input = ""
+		cmd.Code = CmdCode(actionParts[0])
+		if len(actionParts) > 1 {
+			cmd.Input = actionParts[1]
+		}
+	}
+
+	switch cmd.Code {
+	case CmdDisconnect, CmdClose:
+		serverInstance.closeAndDeleteConnection(c)
+		return nil
+	case CmdMessage:
+		for id, conn := range serverInstance.connections {
+			l := *conn
+			if id != c.ID {
+				if cmd.Input != "" {
+					output := fmt.Sprintf(">who:%s|>>message:%s\n", c.ID, cmd.Input)
+					if _, err := l.Write([]byte(output)); err != nil {
+						serverInstance.closeAndDeleteConnection(conn)
+						return err
+					}
+				}
+			}
+		}
+	default:
+		output := fmt.Sprintf(">who:|>>message:%s\n", CmdErrorInvalidCommand)
+		if _, err := c.Write([]byte(output)); err != nil {
+			serverInstance.closeAndDeleteConnection(c)
+			return err
+		}
+	}
+
+	return nil
 }

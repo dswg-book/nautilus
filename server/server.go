@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"strings"
 )
@@ -52,7 +53,7 @@ func (s *Server) listen() error {
 	}
 	s.listener = l
 
-	fmt.Printf("server open at %s:%s\n", s.Options.Host, s.Options.Port)
+	log.Printf("server open at %s:%s\n", s.Options.Host, s.Options.Port)
 
 	for {
 		c, err := l.Accept()
@@ -94,65 +95,23 @@ func (s *Server) closeAndDeleteConnection(c *Connection) {
 
 func (s *Server) handleConnection(c *Connection) {
 	if _, err := c.Write([]byte(fmt.Sprintf(">who:|>>id:%s\n", c.ID))); err != nil {
-		c.Close()
+		log.Printf("connection write error: %s", err)
+		s.closeAndDeleteConnection(c)
 		return
 	}
 
 	for {
 		data, err := bufio.NewReader(c).ReadString('\n')
 		if err != nil {
+			log.Printf("connection read error: %s", err)
 			return
 		}
 		data = strings.TrimSpace(data)
 
-		var cmds []*Command
-
-		tags := strings.Split(data, "|>")
-		for _, tag := range tags {
-			cmd := NewCommand(CommandOptions{Code: CmdMessage})
-			if strings.HasPrefix(tag, "<") {
-				tagParts := strings.Split(tag, ":")
-				cmd = NewCommand(
-					CommandOptions{
-						Code:  CmdCode(tagParts[0][1:]),
-						Input: tagParts[1],
-					},
-				)
-			}
-			cmds = append(cmds, cmd)
-		}
-
+		cmds := CommandsFromTags(data)
 		for _, cmd := range cmds {
-			if cmd.Code == CmdAction {
-				actionParts := strings.SplitN(cmd.Input, " ", 1)
-				cmd.Input = ""
-				cmd.Code = CmdCode(actionParts[0])
-				if len(actionParts) > 1 {
-					cmd.Input = actionParts[1]
-				}
-			}
-
-			switch cmd.Code {
-			case CmdDisconnect, CmdClose:
-				s.closeAndDeleteConnection(c)
-				return
-			case CmdMessage:
-				for id, conn := range s.connections {
-					l := *conn
-					if id != c.ID {
-						if cmd.Input != "" {
-							if _, err := l.Write([]byte(fmt.Sprintf(">who:%s|>>message:%s\n", c.ID, cmd.Input))); err != nil {
-								serverInstance.closeAndDeleteConnection(conn)
-								return
-							}
-						}
-					}
-				}
-			default:
-				if _, err := c.Write([]byte(fmt.Sprintf(">who:|>>message:%s\n", CmdErrorInvalidCommand))); err != nil {
-					s.closeAndDeleteConnection(c)
-					return
-				}
+			if err := cmd.Run(c); err != nil {
+				log.Printf("cmd run error: %s", err)
 			}
 		}
 	}
