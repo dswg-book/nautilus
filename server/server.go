@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -33,8 +34,9 @@ func NewServer(ctx context.Context, options *ServerOptions) *Server {
 func (s *Server) Start() {
 	go func() {
 		if err := s.listen(); err != nil {
-			fmt.Printf("listen: error: %s\n", err)
-			panic(err)
+			if !errors.Is(err, net.ErrClosed) {
+				panic(err)
+			}
 		}
 	}()
 }
@@ -44,7 +46,7 @@ func (s *Server) Stop() error {
 }
 
 func (s *Server) listen() error {
-	l, err := net.Listen("tcp4", s.Options.Host+":"+s.Options.Port)
+	l, err := net.Listen("tcp", s.Options.Host+":"+s.Options.Port)
 	if err != nil {
 		return err
 	}
