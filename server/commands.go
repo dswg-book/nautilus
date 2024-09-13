@@ -71,20 +71,38 @@ func (cmd *Command) Run(c *Connection) error {
 		return nil
 	case CmdMessage:
 		for id, conn := range serverInstance.connections {
-			l := *conn
 			if id != c.ID {
 				if cmd.Input != "" {
-					output := fmt.Sprintf(">who:%s|>>message:%s\n", c.ID, cmd.Input)
-					if _, err := l.Write([]byte(output)); err != nil {
+					output := fmt.Sprintf(">message:%s", cmd.Input)
+					if err := serverInstance.send(conn, c.ID, output); err != nil {
 						serverInstance.closeAndDeleteConnection(conn)
 						return err
 					}
 				}
 			}
 		}
+	case CmdID:
+		oldName := c.ID
+		name := cmd.Input
+		if serverInstance.hasID(name) {
+			output := fmt.Sprintf(">message:%s", CmdErrorIDAlreadyTaken)
+			if err := serverInstance.send(c, "", output); err != nil {
+				serverInstance.closeAndDeleteConnection(c)
+				return err
+			}
+			return nil
+		}
+		serverInstance.updateConnection(c, func(c *Connection) {
+			c.ID = name
+		})
+		output := fmt.Sprintf(">message:%s|>>id:%s|>>old_id:%s", "id changed", name, oldName)
+		if err := serverInstance.broadcast(output); err != nil {
+			serverInstance.closeAndDeleteConnection(c)
+			return err
+		}
 	default:
-		output := fmt.Sprintf(">who:|>>message:%s\n", CmdErrorInvalidCommand)
-		if _, err := c.Write([]byte(output)); err != nil {
+		output := fmt.Sprintf(">message:%s", CmdErrorInvalidCommand)
+		if err := serverInstance.send(c, "", output); err != nil {
 			serverInstance.closeAndDeleteConnection(c)
 			return err
 		}

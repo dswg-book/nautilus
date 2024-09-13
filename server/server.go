@@ -65,18 +65,22 @@ func (s *Server) listen() error {
 	}
 }
 
+func (s *Server) hasID(id string) bool {
+	var found bool
+	for k, _ := range s.connections {
+		if k == id {
+			found = true
+		}
+	}
+	return found
+}
 func (s *Server) addConnection(c net.Conn) *Connection {
 	var name string
 	var generatedName bool
 
 	for !generatedName {
 		name = generateName()
-		generatedName = true
-		for k, _ := range s.connections {
-			if k == name {
-				generatedName = false
-			}
-		}
+		generatedName = !s.hasID(name)
 	}
 
 	conn := NewConnection(ConnectionOptions{ID: name, Conn: c})
@@ -93,8 +97,14 @@ func (s *Server) closeAndDeleteConnection(c *Connection) {
 	s.deleteConnection(c)
 }
 
+func (s *Server) updateConnection(c *Connection, cb func(*Connection)) {
+	s.deleteConnection(c)
+	cb(c)
+	s.connections[c.ID] = c
+}
+
 func (s *Server) handleConnection(c *Connection) {
-	if _, err := c.Write([]byte(fmt.Sprintf(">who:|>>id:%s\n", c.ID))); err != nil {
+	if err := s.broadcast(fmt.Sprintf(">id:%s", c.ID)); err != nil {
 		log.Printf("connection write error: %s", err)
 		s.closeAndDeleteConnection(c)
 		return
@@ -115,4 +125,22 @@ func (s *Server) handleConnection(c *Connection) {
 			}
 		}
 	}
+}
+
+func (s *Server) broadcast(input string) error {
+	for _, conn := range s.connections {
+		if err := s.send(conn, "", input); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Server) send(conn *Connection, who string, input string) error {
+	output := fmt.Sprintf(">who:%s|>%s\n", who, input)
+	if _, err := conn.Write([]byte(output)); err != nil {
+		log.Printf("conn: %s: send error: %s", conn.ID, err)
+		return err
+	}
+	return nil
 }
