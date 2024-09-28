@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"os"
 
 	"github.com/DistributedSystemsWithGo/nautilus/client"
 )
@@ -23,8 +24,9 @@ func main() {
 		}
 	}()
 	for {
-		var cmd string
-		if _, err := fmt.Scanln(&cmd); err != nil {
+		in := bufio.NewReader(os.Stdin)
+		cmd, err := in.ReadString('\n')
+		if err != nil {
 			fmt.Printf("error: %s\n", err.Error())
 			continue
 		}
