@@ -11,7 +11,8 @@ import (
 )
 
 type ServerOptions struct {
-	Host, Port string
+	Host string
+	Port int
 }
 
 type Server struct {
@@ -47,13 +48,13 @@ func (s *Server) Stop() error {
 }
 
 func (s *Server) listen() error {
-	l, err := net.Listen("tcp", s.Options.Host+":"+s.Options.Port)
+	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.Options.Host, s.Options.Port))
 	if err != nil {
 		return err
 	}
 	s.listener = l
 
-	log.Printf("server open at %s:%s\n", s.Options.Host, s.Options.Port)
+	log.Printf("server open at %s:%d\n", s.Options.Host, s.Options.Port)
 
 	for {
 		c, err := l.Accept()

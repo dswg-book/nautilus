@@ -2,14 +2,26 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"os"
 
 	"github.com/DistributedSystemsWithGo/nautilus/client"
 )
 
+var (
+	host string
+	port int
+)
+
+func init() {
+	flag.StringVar(&host, "host", "localhost", "Host for server")
+	flag.IntVar(&port, "port", 3030, "Port for server")
+	flag.Parse()
+}
+
 func main() {
-	dialer := client.NewDialer("localhost", 3030)
+	dialer := client.NewDialer(host, port)
 	conn, err := dialer.Open()
 	if err != nil {
 		panic(err)

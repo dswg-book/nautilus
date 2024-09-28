@@ -11,12 +11,13 @@ import (
 )
 
 var (
-	host, port string
+	host string
+	port int
 )
 
 func init() {
 	flag.StringVar(&host, "host", "localhost", "Host for server")
-	flag.StringVar(&port, "port", "3030", "Port for server")
+	flag.IntVar(&port, "port", 3030, "Port for server")
 	flag.Parse()
 }
 
