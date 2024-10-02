@@ -123,6 +123,7 @@ func (s *Server) handleConnection(c *Connection) {
 		if len(cmds) < 1 {
 			s.send(c, "", fmt.Sprintf(">message:%s: %s", CmdErrorInvalidCommand, data))
 		}
+		fmt.Println(cmds)
 		for _, cmd := range cmds {
 			if err := cmd.Run(c); err != nil {
 				log.Printf("cmd run error: %s", err)

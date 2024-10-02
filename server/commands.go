@@ -38,11 +38,14 @@ func CommandsFromTags(data string) []*Command {
 
 	tags := strings.Split(data, "|>")
 	for _, tag := range tags {
+		fmt.Println(tag)
 		cmd := NewCommand(CommandOptions{Code: CmdMessage})
 		if strings.HasPrefix(tag, "<") {
-			tagParts := strings.Split(tag, ":")
+			tagParts := strings.SplitN(tag, ":", 2)
+			t := strings.ToLower(strings.TrimSpace(tagParts[0][1:]))
+			fmt.Println(t)
 			options := CommandOptions{
-				Code: CmdCode(tagParts[0][1:]),
+				Code: CmdCode(t),
 			}
 			if len(tagParts) > 1 {
 				options.Input = tagParts[1]
@@ -51,17 +54,22 @@ func CommandsFromTags(data string) []*Command {
 		}
 		cmds = append(cmds, cmd)
 	}
+	fmt.Println(cmds)
 
 	return cmds
+}
+
+func (cmd *Command) String() string {
+	return fmt.Sprintf("%s:%s", cmd.Code, cmd.Input)
 }
 
 func (cmd *Command) Run(c *Connection) error {
 	if serverInstance == nil {
 		return errors.New("missing server instance: please start server")
 	}
-
+	fmt.Println(cmd)
 	if cmd.Code == CmdAction {
-		actionParts := strings.SplitN(cmd.Input, " ", 1)
+		actionParts := strings.SplitN(cmd.Input, " ", 2)
 		cmd.Input = ""
 		cmd.Code = CmdCode(actionParts[0])
 		if len(actionParts) > 1 {
@@ -82,6 +90,8 @@ func (cmd *Command) Run(c *Connection) error {
 						serverInstance.closeAndDeleteConnection(conn)
 						return err
 					}
+				} else {
+					serverInstance.send(c, "", fmt.Sprintf(">message:%s: %s", CmdErrorInvalidCommand, ""))
 				}
 			}
 		}
