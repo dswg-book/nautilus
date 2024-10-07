@@ -1,0 +1,15 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nautilus
+  labels:
+    app: nautilus
+    service: nautilus
+spec:
+  ports:
+    - name: tcp
+      port: 3030
+      targetPort: 3030
+  selector:
+    app: nautilus
