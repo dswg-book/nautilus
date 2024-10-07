@@ -16,7 +16,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&host, "host", "localhost", "Host for server")
+	flag.StringVar(&host, "host", "0.0.0.0", "Host for server")
 	flag.IntVar(&port, "port", 3030, "Port for server")
 	flag.Parse()
 }
