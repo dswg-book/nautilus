@@ -62,6 +62,7 @@ func (s *Server) listen() error {
 			return err
 		}
 		conn := s.addConnection(c)
+		log.Printf("%s connected", conn.ID)
 		go s.handleConnection(conn)
 	}
 }
