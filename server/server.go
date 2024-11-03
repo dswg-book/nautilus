@@ -62,7 +62,7 @@ func (s *Server) listen() error {
 			return err
 		}
 		conn := s.addConnection(c)
-		log.Printf("%s connected", conn.ID)
+		log.Printf("[%s] connected", conn.ID)
 		go s.handleConnection(conn)
 	}
 }
@@ -119,12 +119,13 @@ func (s *Server) handleConnection(c *Connection) {
 			return
 		}
 		data = strings.TrimSpace(data)
+		log.Printf("[%s] incoming data: %s", c.ID, data)
 
 		cmds := CommandsFromTags(data)
 		if len(cmds) < 1 {
 			s.send(c, "", fmt.Sprintf(">message:%s: %s", CmdErrorInvalidCommand, data))
 		}
-		fmt.Println(cmds)
+
 		for _, cmd := range cmds {
 			if err := cmd.Run(c); err != nil {
 				log.Printf("cmd run error: %s", err)
