@@ -5,6 +5,9 @@ CLIENTNAME := ${APPNAME}-client
 HOST := localhost
 PORT := 3030
 
+.PHONY: all
+all: build
+
 build-server:
 	@go build -o ${BUILDDIR}/${SERVERNAME} ./cmd/server
 
