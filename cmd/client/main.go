@@ -24,13 +24,13 @@ func main() {
 	dialer := client.NewDialer(host, port)
 	conn, err := dialer.Open()
 	if err != nil {
-		panic(err)
+		os.Exit(1)
 	}
 	go func() {
 		for {
 			incoming, err := bufio.NewReader(conn).ReadString('\n')
 			if err != nil {
-				panic(err)
+				os.Exit(0)
 			}
 			fmt.Print(incoming)
 		}
@@ -42,6 +42,8 @@ func main() {
 			fmt.Printf("error: %s\n", err.Error())
 			continue
 		}
-		fmt.Fprintf(conn, "%s\n", cmd)
+		if _, err := fmt.Fprintf(conn, "%s\n", cmd); err != nil {
+			return
+		}
 	}
 }

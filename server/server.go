@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"strings"
+	"syscall"
 )
 
 type ServerOptions struct {
@@ -59,6 +60,7 @@ func (s *Server) listen() error {
 	for {
 		c, err := l.Accept()
 		if err != nil {
+			log.Printf("listen error: %#v", err)
 			return err
 		}
 		conn := s.addConnection(c)
@@ -115,7 +117,6 @@ func (s *Server) handleConnection(c *Connection) {
 	for {
 		data, err := bufio.NewReader(c).ReadString('\n')
 		if err != nil {
-			log.Printf("connection read error: %s", err)
 			return
 		}
 		data = strings.TrimSpace(data)
@@ -144,9 +145,18 @@ func (s *Server) broadcast(input string) error {
 }
 
 func (s *Server) send(conn *Connection, who string, input string) error {
+	id := conn.ID
+	var buff []byte
+	if _, err := conn.Read(buff); err != nil {
+		return nil
+	}
 	output := fmt.Sprintf(">who:%s|>%s\n", who, input)
 	if _, err := conn.Write([]byte(output)); err != nil {
-		log.Printf("conn: %s: send error: %s", conn.ID, err)
+		if errors.Is(err, syscall.EPIPE) {
+			log.Printf("con: %s: broken pipe error: %s", id, err)
+			return nil
+		}
+		log.Printf("conn: %s: error type: %t: send error: %s", id, err, err)
 		return err
 	}
 	return nil

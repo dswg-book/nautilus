@@ -26,3 +26,4 @@ go.work.sum
 
 # artifacts
 build
+__debug*
