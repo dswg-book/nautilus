@@ -1,3 +1,2 @@
-module github.com/DistributedSystemsWithGo/nautilus
-
+module github.com/dswg-book/nautilus
 go 1.23.0

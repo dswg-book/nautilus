@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/DistributedSystemsWithGo/nautilus/client"
+	"github.com/dswg-book/nautilus/client"
 )
 
 var (

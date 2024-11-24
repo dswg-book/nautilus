@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/DistributedSystemsWithGo/nautilus/server"
+	"github.com/dswg-book/nautilus/server"
 )
 
 var (
