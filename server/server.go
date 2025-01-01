@@ -78,6 +78,7 @@ func (s *Server) hasID(id string) bool {
 	}
 	return found
 }
+
 func (s *Server) addConnection(c net.Conn) *Connection {
 	var name string
 	var generatedName bool
