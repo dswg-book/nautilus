@@ -9,6 +9,8 @@ import (
 	"net"
 	"strings"
 	"syscall"
+
+	"github.com/dswg-book/nautilus/peer"
 )
 
 type ServerOptions struct {
@@ -17,19 +19,30 @@ type ServerOptions struct {
 }
 
 type Server struct {
-	Options     *ServerOptions
-	Context     context.Context
-	listener    net.Listener
-	connections map[string]*Connection
+	Options       *ServerOptions
+	Context       context.Context
+	listener      net.Listener
+	connections   map[string]*Connection
+	peers         map[string]*peer.Peer
+	InputChannel  *chan string
+	OutputChannel *chan string
+	ErrorChannel  *chan error
 }
 
 var serverInstance *Server
 
 func NewServer(ctx context.Context, options *ServerOptions) *Server {
+	inputChannel := make(chan string)
+	outputChannel := make(chan string)
+	errorChannel := make(chan error)
 	serverInstance = &Server{
-		Options:     options,
-		Context:     ctx,
-		connections: make(map[string]*Connection),
+		Options:       options,
+		Context:       ctx,
+		connections:   make(map[string]*Connection),
+		peers:         make(map[string]*peer.Peer),
+		InputChannel:  &inputChannel,
+		OutputChannel: &outputChannel,
+		ErrorChannel:  &errorChannel,
 	}
 	return serverInstance
 }
@@ -161,4 +174,34 @@ func (s *Server) send(conn *Connection, who string, input string) error {
 		return err
 	}
 	return nil
+}
+
+func (s *Server) AddPeer(peer *peer.Peer) {
+	s.peers[fmt.Sprintf("%s:%d", peer.Host, peer.Port)] = peer
+	s.connectToPeer(peer)
+}
+
+func (s *Server) RemovePeer(peer *peer.Peer) {
+	s.disconnectFromPeer(peer)
+	delete(s.peers, fmt.Sprintf("%s:%d", peer.Host, peer.Port))
+}
+
+func (s *Server) ConnectToPeers() {
+	for _, peer := range s.peers {
+		s.connectToPeer(peer)
+	}
+}
+
+func (s *Server) DisconnectFromPeers() {
+	for _, peer := range s.peers {
+		s.disconnectFromPeer(peer)
+	}
+}
+
+func (s *Server) connectToPeer(peer *peer.Peer) {
+	peer.Connect()
+}
+
+func (s *Server) disconnectFromPeer(peer *peer.Peer) {
+	peer.Disconnect()
 }
